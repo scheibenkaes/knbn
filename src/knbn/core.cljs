@@ -2,7 +2,7 @@
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
   (:require [om.core :as om :include-macros true]
             [cljs.core.async :as async]
-
+            [cljs.reader]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as dom :include-macros true]))
 
@@ -12,22 +12,49 @@
              :open "#ad7fa8"
              :wip "#fcaf3e"})
 
+(def placeholder {:state :hidden
+                  :text "Nothing here right now"})
+
 (def app-state (atom {:text "Personal Kanban"
                       :max-wip-tasks 3
                       :tasks [{:text "Wäsche waschen"
-                               :state :open}
+                               :state :open
+                               :id 1}
                               {:text "Wohnung auf Vordermann bringen"
-                               :state :wip}
+                               :state :wip
+                               :id 2}
                               {:text "Fussball schauen"
-                               :state :done}
+                               :state :done
+                               :id 3}
                               {:text "Einladungen verschicken"
-                               :state :done}
+                               :state :done
+                               :id 4}
                               ]}))
+
+
+(defn update-state-in [tasks task state]
+  (mapv (fn [{id :id :as t}]
+          (if (= id (:id task))
+            (assoc t :state state)
+            t)) tasks))
+
+(update-state-in [{:text "Wäsche waschen", :state :open, :id 1} {:text "Wohnung auf Vordermann bringen", :state :wip, :id 2} {:text "Fussball schauen", :state :done, :id 3} {:text "Einladungen verschicken", :state :done, :id 4}]
+                 {:text "Wäsche waschen", :state :open, :id 1} :wip)
+
+(def intercom (async/chan))
+
+(go-loop []
+         (when-let [{:keys [task new-state]} (async/<! intercom)]
+           (swap! app-state assoc :tasks (update-state-in (:tasks @app-state) task new-state)))
+
+         (recur))
 
 (defn wip-limit-exceeded? [{:keys [tasks max-wip-tasks]}]
   (-> (filter #(= :wip (:state %)) tasks)
-       count
-       (>= max-wip-tasks)))
+      count
+      (>= max-wip-tasks)))
+
+(defn new-id [] (js/Date.now))
 
 (defcomponent header-comp [app owner]
   (init-state [_]
@@ -43,7 +70,8 @@
                                    "")]
                          (when (seq (.trim text))
                            (set! (.-value input) nil)
-                           (swap! app-state update-in [:tasks] conj {:text text :state :open :color (:open colors)}))
+                           (swap! app-state update-in [:tasks] conj
+                                  {:text text :state :open :color (:open colors) :id (new-id)}))
                          (recur))))
 
   (render-state [_ {:keys [comm] :as state}]
@@ -61,31 +89,52 @@
                          (dom/div {:class "uk-width-1-3 uk-panel"}
                                   (dom/h3 {:class "uk-panel-title"} "Closed")))))
 
-(defcomponent task-comp [{:keys [text state]} owner]
-  (render [_]
-          (dom/li
-           (dom/div {:style {:background-color (get colors state)}
-                     :class "uk-panel uk-panel-box uk-text-center task"} text))))
+(defcomponent task-comp [{:keys [text state] :as task} owner]
+  (render-state [_ {:keys [draggable]}]
+                (let [draggable (and draggable (not= state :hidden))]
+                  (dom/li
+                   (dom/div {:style {:background-color (get colors state)
+                                     :cursor (when draggable "pointer")}
+                             :class (str "uk-panel uk-panel-box uk-text-center
+                                         task " (name state))
+                             :draggable draggable
+                             :on-drag-over (fn [e]
+                                             (.preventDefault e)
+                                             false)
+
+                             :on-drag-start (fn[e]
+                                              (.setData (.-dataTransfer e) "application/clojure" @task)
+                                              )} text)))))
+
+(defcomponent col-comp [tasks owner]
+  (render-state [_ {:keys [draggable task-state]}]
+                (dom/div {:class "uk-width-1-3 uk-panel
+                          "
+                          :on-drop (fn [e]
+                                     (.stopPropagation e)
+                                     (let [task (.getData (.-dataTransfer e) "application/clojure")]
+                                       (async/put! intercom {:task (cljs.reader/read-string task)
+                                                             :new-state task-state}))
+                                     )}
+                         (dom/ul {:class "uk-grid uk-grid-width-small-1-1 uk-grid-width-medium-1-2 uk-grid-width-large-1-2"}
+                                 (om/build-all task-comp tasks {:state {:draggable draggable}})))))
 
 (defcomponent body-comp [{:keys [tasks] :as app} owner]
   (render-state [_ state]
                 (let [{:keys [done wip open]} (group-by :state tasks)]
                   (dom/div {:class "uk-grid"}
 
-                           (dom/div {:class "uk-width-1-3 uk-panel
-                                     open-col"}
-                                    (dom/ul {:class "uk-grid uk-grid-width-small-1-1 uk-grid-width-medium-1-2 uk-grid-width-large-1-2"}
-                                            (om/build-all task-comp open)))
+                           (om/build col-comp (or open [placeholder]) {:state {:draggable (not
+                                                                        (wip-limit-exceeded? app))
+                                                            :task-state :open}})
 
-                           (dom/div {:class "uk-width-1-3 uk-panel
-                                     wip-col"}
-                                    (dom/ul {:class "uk-grid uk-grid-width-small-1-1 uk-grid-width-medium-1-2 uk-grid-width-large-1-2"}
-                                            (om/build-all task-comp wip)))
+                           (om/build col-comp (or wip [placeholder]) {:state {:draggable true
+                                                           :task-state :wip}})
 
-                           (dom/div {:class "uk-width-1-3 uk-panel
-                                     done-col"}
-                                    (dom/ul {:class "uk-grid uk-grid-width-small-1-1 uk-grid-width-medium-1-2 uk-grid-width-large-1-2"}
-                                            (om/build-all task-comp done)))
+                           (om/build col-comp (or done [placeholder])
+                                     {:state {:draggable false
+                                              :task-state :done}})
+
                            ))))
 
 (om/root
