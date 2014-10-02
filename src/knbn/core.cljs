@@ -4,13 +4,16 @@
             [cljs.core.async :as async]
             [cljs.reader]
             [om-tools.core :refer-macros [defcomponent]]
-            [om-tools.dom :as dom :include-macros true]))
+            [om-tools.dom :as dom :include-macros true]
+            [attic.core :as attic]))
 
 (enable-console-print!)
 
-(def colors {:done "#8ae234"
-             :open "#ad7fa8"
-             :wip "#fcaf3e"})
+(def colors {:done "8ae234"
+             :open "ad7fa8"
+             :wip "fcaf3e"})
+
+(def db "knkn-db")
 
 (def placeholder {:state :hidden
                   :text "Nothing here right now"})
@@ -21,25 +24,22 @@
                           :pos "bottom-center"
                           :timeout 1000}))
 
-(defn initial-state []
+(defn load-tasks-from-local-storage []
+  (let [tasks (attic/get-item db)]
+    (vec tasks)))
+
+(defn initial-state [tasks]
   {:text "Personal Kanban"
-   :max-wip-tasks 3
-   :tasks [{:text "Wäsche waschen"
-            :state :open
-            :id 1}
-           {:text "Wohnung auf Vordermann bringen"
-            :state :wip
-            :id 2}
-           {:text "Fussball schauen"
-            :state :done
-            :id 3}
-           {:text "Einladungen verschicken"
-            :state :done
-            :id 4}
-           ]})
+   :max-wip-tasks 5
+   :tasks tasks})
 
-(def app-state (atom (initial-state)))
+(def app-state (atom (initial-state (load-tasks-from-local-storage))))
 
+(defn auto-save [k r {old-tasks :tasks} {new-tasks :tasks}]
+  (when-not (= old-tasks new-tasks)
+    (attic/set-item db new-tasks)))
+
+(add-watch app-state ::task-auto-save auto-save)
 
 (defn update-state-in [tasks task state]
   (mapv (fn [{id :id :as t}]
@@ -56,7 +56,6 @@
            (when (not= former-tasks (:tasks @app-state))
              (notify-task-updated (str "Updated " (:text task)) "success"))
            )
-
          (recur))
 
 (defn wip-limit-exceeded? [{:keys [tasks max-wip-tasks]}]
