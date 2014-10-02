@@ -24,7 +24,7 @@
 (defn notify-task-updated [msg & [status]]
   (js/$.UIkit.notify #js {:message msg
                           :status (or status "info")
-                          :pos "bottom-center"
+                          :pos "top-center"
                           :timeout 1000}))
 
 (defn load-tasks-from-local-storage []
