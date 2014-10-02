@@ -53,20 +53,23 @@
 (def intercom (async/chan))
 
 (defn update-task [task new-state]
-  (let [former-tasks (:tasks @app-state)]
-    (swap! app-state assoc :tasks (update-state-in (:tasks @app-state) task new-state))
-    (when (not= former-tasks (:tasks @app-state))
+  (let [tasks (:tasks @app-state)
+        former-tasks tasks
+        new-tasks (update-state-in tasks task new-state)]
+    (swap! app-state assoc :tasks new-tasks)
+    (when (not= former-tasks new-tasks)
       (notify-task-updated (str "Updated " (:text task)) "success")))
   )
 
 (defn delete-task [id]
-  (swap! app-state update-in [:tasks] (toolbelt/flip remove) (fn [{id-t :id}] (= id id-t))))
+  (swap! app-state update-in [:tasks] (comp vec (toolbelt/flip remove)) (fn [{id-t :id}] (= id id-t))))
 
 (go-loop []
          (let [msg (async/<! intercom)]
            (match [msg]
                   [{:task task :new-state new-state}] (update-task task new-state)
                   [{:delete id}] (delete-task id)))
+
          (recur))
 
 (defn wip-limit-exceeded? [{:keys [tasks max-wip-tasks]}]
@@ -123,8 +126,7 @@
                                              false)
 
                              :on-drag-start (fn[e]
-                                              (.setData (.-dataTransfer e) "application/clojure" @task)
-                                              )}
+                                              (.setData (.-dataTransfer e) "application/clojure" @task))}
                             text
                             (when (= state :done)
                               (dom/a {:class "uk-close"
@@ -161,6 +163,7 @@
                                               :task-state :done}})
 
                            ))))
+
 
 (om/root
  (fn [app owner]
