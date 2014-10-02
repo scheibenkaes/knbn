@@ -1,11 +1,14 @@
 (ns knbn.core
-  (:require-macros [cljs.core.async.macros :refer [go-loop]])
+  (:require-macros [cljs.core.async.macros :refer [go-loop]]
+                   [cljs.core.match.macros :refer [match]])
   (:require [om.core :as om :include-macros true]
             [cljs.core.async :as async]
+            [cljs.core.match]
             [cljs.reader]
             [om-tools.core :refer-macros [defcomponent]]
             [om-tools.dom :as dom :include-macros true]
-            [attic.core :as attic]))
+            [attic.core :as attic]
+            [toolbelt.core :as toolbelt]))
 
 (enable-console-print!)
 
@@ -49,13 +52,21 @@
 
 (def intercom (async/chan))
 
+(defn update-task [task new-state]
+  (let [former-tasks (:tasks @app-state)]
+    (swap! app-state assoc :tasks (update-state-in (:tasks @app-state) task new-state))
+    (when (not= former-tasks (:tasks @app-state))
+      (notify-task-updated (str "Updated " (:text task)) "success")))
+  )
+
+(defn delete-task [id]
+  (swap! app-state update-in [:tasks] (toolbelt/flip remove) (fn [{id-t :id}] (= id id-t))))
+
 (go-loop []
-         (let [{:keys [task new-state]} (async/<! intercom)
-               former-tasks (:tasks @app-state)]
-           (swap! app-state assoc :tasks (update-state-in (:tasks @app-state) task new-state))
-           (when (not= former-tasks (:tasks @app-state))
-             (notify-task-updated (str "Updated " (:text task)) "success"))
-           )
+         (let [msg (async/<! intercom)]
+           (match [msg]
+                  [{:task task :new-state new-state}] (update-task task new-state)
+                  [{:delete id}] (delete-task id)))
          (recur))
 
 (defn wip-limit-exceeded? [{:keys [tasks max-wip-tasks]}]
@@ -98,7 +109,7 @@
                          (dom/div {:class "uk-width-1-3 uk-panel"}
                                   (dom/h3 {:class "uk-panel-title"} "Closed")))))
 
-(defcomponent task-comp [{:keys [text state] :as task} owner]
+(defcomponent task-comp [{:keys [text state id] :as task} owner]
   (render-state [_ {:keys [draggable]}]
                 (let [draggable (and draggable (not= state :hidden))]
                   (dom/li
@@ -113,7 +124,12 @@
 
                              :on-drag-start (fn[e]
                                               (.setData (.-dataTransfer e) "application/clojure" @task)
-                                              )} text)))))
+                                              )}
+                            text
+                            (when (= state :done)
+                              (dom/a {:class "uk-close"
+                                      :on-click (fn [_] (async/put! intercom {:delete id}))}))
+                            )))))
 
 (defcomponent col-comp [tasks owner]
   (render-state [_ {:keys [draggable task-state]}]
