@@ -15,21 +15,30 @@
 (def placeholder {:state :hidden
                   :text "Nothing here right now"})
 
-(def app-state (atom {:text "Personal Kanban"
-                      :max-wip-tasks 3
-                      :tasks [{:text "Wäsche waschen"
-                               :state :open
-                               :id 1}
-                              {:text "Wohnung auf Vordermann bringen"
-                               :state :wip
-                               :id 2}
-                              {:text "Fussball schauen"
-                               :state :done
-                               :id 3}
-                              {:text "Einladungen verschicken"
-                               :state :done
-                               :id 4}
-                              ]}))
+(defn notify-task-updated [msg & [status]]
+  (js/$.UIkit.notify #js {:message msg
+                          :status (or status "info")
+                          :pos "bottom-center"
+                          :timeout 1000}))
+
+(defn initial-state []
+  {:text "Personal Kanban"
+   :max-wip-tasks 3
+   :tasks [{:text "Wäsche waschen"
+            :state :open
+            :id 1}
+           {:text "Wohnung auf Vordermann bringen"
+            :state :wip
+            :id 2}
+           {:text "Fussball schauen"
+            :state :done
+            :id 3}
+           {:text "Einladungen verschicken"
+            :state :done
+            :id 4}
+           ]})
+
+(def app-state (atom (initial-state)))
 
 
 (defn update-state-in [tasks task state]
@@ -38,14 +47,15 @@
             (assoc t :state state)
             t)) tasks))
 
-(update-state-in [{:text "Wäsche waschen", :state :open, :id 1} {:text "Wohnung auf Vordermann bringen", :state :wip, :id 2} {:text "Fussball schauen", :state :done, :id 3} {:text "Einladungen verschicken", :state :done, :id 4}]
-                 {:text "Wäsche waschen", :state :open, :id 1} :wip)
-
 (def intercom (async/chan))
 
 (go-loop []
-         (when-let [{:keys [task new-state]} (async/<! intercom)]
-           (swap! app-state assoc :tasks (update-state-in (:tasks @app-state) task new-state)))
+         (let [{:keys [task new-state]} (async/<! intercom)
+               former-tasks (:tasks @app-state)]
+           (swap! app-state assoc :tasks (update-state-in (:tasks @app-state) task new-state))
+           (when (not= former-tasks (:tasks @app-state))
+             (notify-task-updated (str "Updated " (:text task)) "success"))
+           )
 
          (recur))
 
@@ -125,11 +135,11 @@
                   (dom/div {:class "uk-grid"}
 
                            (om/build col-comp (or open [placeholder]) {:state {:draggable (not
-                                                                        (wip-limit-exceeded? app))
-                                                            :task-state :open}})
+                                                                                           (wip-limit-exceeded? app))
+                                                                               :task-state :open}})
 
                            (om/build col-comp (or wip [placeholder]) {:state {:draggable true
-                                                           :task-state :wip}})
+                                                                              :task-state :wip}})
 
                            (om/build col-comp (or done [placeholder])
                                      {:state {:draggable false
