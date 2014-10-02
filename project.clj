@@ -20,7 +20,7 @@
     :builds [{:id "knbn"
               :source-paths ["src"]
               :compiler {
-                :output-to "knbn.js"
-                :output-dir "out"
+                :output-to "resources/public/knbn.js"
+                :output-dir "resources/public/out"
                 :optimizations :none
                 :source-map true}}]})
