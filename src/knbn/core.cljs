@@ -64,6 +64,9 @@
 (defn delete-task [id]
   (swap! app-state update-in [:tasks] (comp vec (toolbelt/flip remove)) (fn [{id-t :id}] (= id id-t))))
 
+(defn delete-all-tasks [in-state]
+  (swap! app-state update-in [:tasks] (comp vec (toolbelt/flip remove)) #(-> % :state (= in-state))))
+
 (go-loop []
          (let [msg (async/<! intercom)]
            (match [msg]
@@ -78,6 +81,7 @@
       (>= max-wip-tasks)))
 
 (defn new-id [] (js/Date.now))
+
 
 (defcomponent header-comp [app owner]
   (init-state [_]
@@ -100,7 +104,7 @@
   (render-state [_ {:keys [comm] :as state}]
                 (dom/div {:class "uk-grid"}
                          (dom/div {:class "uk-width-1-3 uk-panel"}
-                                  (dom/h3 {:class "uk-panel-title"} "Open")
+                                  (dom/h2 {:class "uk-panel-title"} "Open")
                                   (dom/form {:on-submit (fn [e]
                                                           (.preventDefault e)
                                                           (async/put! comm :on-submit))}
@@ -108,9 +112,13 @@
                                                         :ref "add-task"
                                                         :on-submit (fn [e] (js/console.log (.-target e)) )})))
                          (dom/div {:class "uk-width-1-3 uk-panel "}
-                                  (dom/h3 {:class "uk-panel-title"} "WIP" " (" (:max-wip-tasks app) ")"))
+                                  (dom/h2 {:class "uk-panel-title"} "WIP" " (" (:max-wip-tasks app) ")"))
                          (dom/div {:class "uk-width-1-3 uk-panel"}
-                                  (dom/h3 {:class "uk-panel-title"} "Closed")))))
+                                  (dom/h2 {:class "uk-panel-title"} "Closed")
+                                  (dom/button {:class "uk-button uk-button-danger"
+                                               :on-click (fn[_] (delete-all-tasks :done))}
+                                              (dom/i {:class "uk-icon-trash"})
+                                              "Delete all closed")))))
 
 (defcomponent task-comp [{:keys [text state id] :as task} owner]
   (render-state [_ {:keys [draggable]}]

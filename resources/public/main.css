@@ -1,9 +1,18 @@
+html {
+  background-image: url('img/cardboard.png');
+}
+
 .task {
   border-radius: 2px;
   border: 1px solid;
+  font-family: 'Gloria Hallelujah', cursive;
 }
 
 .hidden {
-  color: rgba(255, 255, 255, .75);
-  background-color: rgba(255, 255, 255, .75);
+  color: rgba(255, 255, 255, 0);
+  background-color: rgba(255, 255, 255, 0);
+}
+
+.done {
+  text-decoration: line-through;
 }
