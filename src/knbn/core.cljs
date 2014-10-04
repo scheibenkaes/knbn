@@ -111,14 +111,16 @@
                                             (dom/input {:type "text" :placeholder "New task"
                                                         :ref "add-task"
                                                         :on-submit (fn [e] (js/console.log (.-target e)) )})))
-                         (dom/div {:class "uk-width-1-3 uk-panel "}
+                         (dom/div {:class "uk-width-1-3 uk-panel"}
                                   (dom/h2 {:class "uk-panel-title"} "WIP" " (" (:max-wip-tasks app) ")"))
                          (dom/div {:class "uk-width-1-3 uk-panel"}
                                   (dom/h2 {:class "uk-panel-title"} "Closed")
                                   (dom/button {:class "uk-button uk-button-danger"
-                                               :on-click (fn[_] (delete-all-tasks :done))}
+                                               :on-click (fn[_]
+                                                           (when (js/confirm "Really delete all done tasks?")
+                                                             (delete-all-tasks :done)))}
                                               (dom/i {:class "uk-icon-trash"})
-                                              "Delete all closed")))))
+                                              )))))
 
 (defcomponent task-comp [{:keys [text state id] :as task} owner]
   (render-state [_ {:keys [draggable]}]
@@ -143,8 +145,7 @@
 
 (defcomponent col-comp [tasks owner]
   (render-state [_ {:keys [draggable task-state]}]
-                (dom/div {:class "uk-width-1-3 uk-panel
-                          "
+                (dom/div {:class (str "uk-width-1-3 uk-panel col-" (name task-state) )
                           :on-drop (fn [e]
                                      (.stopPropagation e)
                                      (let [task (.getData (.-dataTransfer e) "application/clojure")]
@@ -177,7 +178,7 @@
  (fn [app owner]
    (reify om/IRender
      (render [_]
-             (dom/div {:class "uk-container"}
+             (dom/div {:class "uk-container uk-container-center"}
                       (om/build header-comp app)
                       (om/build body-comp app)))))
  app-state

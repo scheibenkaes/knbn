@@ -17,10 +17,20 @@
   :source-paths ["src"]
 
   :cljsbuild {
-    :builds [{:id "knbn"
-              :source-paths ["src"]
-              :compiler {
-                :output-to "resources/public/knbn.js"
-                :output-dir "resources/public/out"
-                :optimizations :none
-                :source-map true}}]})
+              :builds [{:id "knbn"
+                        :source-paths ["src"]
+                        :compiler {
+                                   :output-to "resources/public/knbn.js"
+                                   :output-dir "resources/public/out"
+                                   :optimizations :none
+                                   :source-map true}}
+                       {:id "prod"
+                        :source-paths ["src"]
+                        :compiler {
+                                   :preamble ["react/react.min.js"]
+                                   :externs ["react/react.js" "externs/uikit.externs.js"]
+                                   :output-to "resources/public/knbn.js"
+                                   :optimizations :advanced
+                                   :pretty-print false
+                                   :closure-warnings {:externs-validation :off
+                                                      :non-standard-jsdoc :off}}}]})
