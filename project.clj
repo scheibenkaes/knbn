@@ -1,4 +1,4 @@
-(defproject org.scheibenkaes/knbn "0.1.0-SNAPSHOT"
+(defproject org.scheibenkaes/knbn "1.0.0"
   :description "A personal kanban board using local storage"
   :url "http://github.com/scheibenkaes/knbn"
 
