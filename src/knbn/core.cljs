@@ -108,11 +108,31 @@
                                   (dom/form {:on-submit (fn [e]
                                                           (.preventDefault e)
                                                           (async/put! comm :on-submit))}
-                                            (dom/input {:type "text" :placeholder "New task"
-                                                        :ref "add-task"
-                                                        :on-submit (fn [e] (js/console.log (.-target e)) )})))
+                                            (dom/div {:class "uk-form-icon"}
+                                                     (dom/i {:class "uk-icon-tasks"})
+                                                     (dom/input {:type "text" :placeholder "New task"
+                                                                 :ref "add-task"
+                                                                 :on-submit (fn [e] (js/console.log (.-target e)) )}))))
                          (dom/div {:class "uk-width-1-3 uk-panel"}
-                                  (dom/h2 {:class "uk-panel-title"} "WIP" " (" (:max-wip-tasks app) ")"))
+                                  (dom/h2 {:class "uk-panel-title"} "WIP" " (" (:max-wip-tasks app) ")")
+                                  (dom/button {:class "uk-button uk-button-primary"
+                                               :data-uk-modal "{target:'#help'}"}
+                                              (dom/i {:class "uk-icon-life-ring"}) " Help")
+                                  (dom/div {:class "uk-modal"
+                                            :id "help"}
+                                           (dom/div {:class "uk-modal-dialog"}
+                                                    (dom/a {:class "uk-modal-close uk-close"})
+                                                    (dom/h1 {:class "uk-h1"}
+                                                            "Create tasks")
+                                                    (dom/p "Enter your new task into the input field and press return to create a new task.")
+                                                    (dom/h1 "Move tasks")
+                                                    (dom/p "Move tasks from one category to the next by simply dragging it into the desired column. "
+                                                           "You can only have " (:max-wip-tasks app) " tasks in the Work In Progress (WIP) column at once.")
+                                                    (dom/h1 "Delete tasks")
+                                                    (dom/p "You can delete tasks in the 'Closed' category by clicking the small cross in it or delete all with the red button."))
+                                           )
+
+                                  )
                          (dom/div {:class "uk-width-1-3 uk-panel"}
                                   (dom/h2 {:class "uk-panel-title"} "Closed")
                                   (dom/button {:class "uk-button uk-button-danger"
